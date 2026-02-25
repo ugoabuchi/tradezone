@@ -1,0 +1,20 @@
+#!/bin/sh
+# Auto-push on commit. Add [no-push] to commit message to skip.
+SKIP_TOKEN='[no-push]'
+MSG=$(git log -1 --pretty=%B)
+
+case "$MSG" in
+  *"$SKIP_TOKEN"*)
+    echo "post-commit: skip token found; not pushing.";
+    exit 0;
+    ;;
+esac
+
+# Ensure branch has an upstream before pushing
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+  echo "post-commit: pushing ${BRANCH} to remote..."
+  git push
+else
+  echo "post-commit: no upstream configured for ${BRANCH}; not pushing."
+fi
