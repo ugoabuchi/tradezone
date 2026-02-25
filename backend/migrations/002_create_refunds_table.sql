@@ -1,31 +1,19 @@
--- Create refunds table for managing payment refunds
+-- Create refunds table for managing payment refunds (MySQL compatible)
 CREATE TABLE IF NOT EXISTS refunds (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+  payment_id VARCHAR(36) NOT NULL,
   amount DECIMAL(15, 2) NOT NULL,
   reason VARCHAR(255),
-  status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  status ENUM('pending','processing','completed','failed') NOT NULL DEFAULT 'pending',
   refund_reference VARCHAR(255),
-  metadata JSONB,
+  metadata JSON,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  completed_at TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP NULL,
   
   INDEX idx_payment_id (payment_id),
-  INDEX idx_status (status)
-);
+  INDEX idx_status (status),
+  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- Create trigger to auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_refunds_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trigger_update_refunds_timestamp ON refunds;
-CREATE TRIGGER trigger_update_refunds_timestamp
-  BEFORE UPDATE ON refunds
-  FOR EACH ROW
-  EXECUTE FUNCTION update_refunds_timestamp();
+-- updated_at column uses ON UPDATE clause instead of trigger

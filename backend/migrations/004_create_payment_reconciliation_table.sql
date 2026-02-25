@@ -1,34 +1,22 @@
--- Create payment reconciliation table for tracking and reconciling payments with gateway records
+-- Create payment reconciliation table for tracking and reconciling payments with gateway records (MySQL compatible)
 CREATE TABLE IF NOT EXISTS payment_reconciliation (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+  payment_id VARCHAR(36) NOT NULL,
   gateway VARCHAR(50) NOT NULL,
   gateway_transaction_id VARCHAR(255),
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
   last_gateway_status VARCHAR(50),
   discrepancy_detected BOOLEAN DEFAULT false,
   discrepancy_reason TEXT,
-  reconciliation_date TIMESTAMP,
+  reconciliation_date TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
-  UNIQUE(payment_id, gateway),
+  UNIQUE KEY unique_payment_gateway (payment_id, gateway),
   INDEX idx_payment_id (payment_id),
   INDEX idx_gateway_transaction_id (gateway_transaction_id),
-  INDEX idx_discrepancy (discrepancy_detected)
-);
+  INDEX idx_discrepancy (discrepancy_detected),
+  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
--- Create trigger to auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_payment_reconciliation_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trigger_update_payment_reconciliation_timestamp ON payment_reconciliation;
-CREATE TRIGGER trigger_update_payment_reconciliation_timestamp
-  BEFORE UPDATE ON payment_reconciliation
-  FOR EACH ROW
-  EXECUTE FUNCTION update_payment_reconciliation_timestamp();
+-- updated_at handled with ON UPDATE clause

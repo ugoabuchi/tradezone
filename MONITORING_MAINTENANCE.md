@@ -22,7 +22,7 @@ echo ""
 echo "1. Service Status:"
 systemctl status tradezone.service | grep Active
 systemctl status nginx | grep Active
-systemctl status postgresql | grep Active
+systemctl status mysql | grep Active
 
 # System resources
 echo ""
@@ -33,7 +33,7 @@ df -h / | tail -1
 # Database
 echo ""
 echo "3. Database Status:"
-sudo -u postgres psql -d tradezone -c "SELECT datname, numbackends FROM pg_stat_database WHERE datname = 'tradezone';" | tail -1
+mysql -u tradezone -p tradezone -e "SHOW STATUS LIKE 'Threads_connected';" | tail -1
 
 # API health
 echo ""
@@ -192,29 +192,13 @@ nethogs
 
 ```bash
 # Setup continuous monitoring
-watch -n 5 'sudo -u postgres psql -d tradezone -c "
-  SELECT 
-    datname, 
-    numbackends as connections, 
-    blks_hit::float/(blks_hit+blks_read)*100 as hit_ratio 
-  FROM pg_stat_database 
-  WHERE datname = '\''tradezone'\'';
-"'
+watch -n 5 'mysqladmin -u tradezone -p processlist | wc -l'  # approximate connections count
 
 # Detailed query analysis
-sudo -u postgres psql -d tradezone << 'EOF'
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+# MySQL stores statistics in performance_schema and slow query log;
+# enable and query those as needed. Example:
+# mysql -u tradezone -p tradezone -e "SELECT * FROM mysql.slow_log ORDER BY start_time DESC LIMIT 20;"
 
-SELECT 
-  query,
-  calls,
-  total_time::numeric(10,2) as total_time_ms,
-  mean_time::numeric(10,2) as avg_time_ms,
-  max_time::numeric(10,2) as max_time_ms
-FROM pg_stat_statements
-ORDER BY total_time DESC
-LIMIT 20;
-EOF
 ```
 
 ### 3. API Request Metrics
@@ -268,7 +252,7 @@ BACKUP_DIR="/backups/databases"
 BACKUP_FILE="$BACKUP_DIR/tradezone-$(date +%Y%m%d-%H%M%S).sql.gz"
 
 # Backup database
-sudo -u postgres pg_dump tradezone | gzip > "$BACKUP_FILE"
+mysqldump -u tradezone -ptradezone_password tradezone | gzip > "$BACKUP_FILE"
 
 # Keep only last 30 days
 find "$BACKUP_DIR" -type f -mtime +30 -delete
@@ -346,8 +330,9 @@ date
 
 # 1. Database optimization
 echo "1. Running database optimization..."
-sudo -u postgres vacuumdb -d tradezone -a
-sudo -u postgres reindexdb -d tradezone
+# MySQL optimization (run as root or mysql user):
+mysqlcheck -o --all-databases -u tradezone -p
+# alternatively use OPTIMIZE TABLE on individual tables as needed.
 
 # 2. Check logs for errors
 echo ""
@@ -357,7 +342,7 @@ grep -i "error\|fatal\|critical" /var/log/tradezone/backend.log | tail -10 || ec
 # 3. Update database statistics
 echo ""
 echo "3. Analyzing database..."
-sudo -u postgres psql -d tradezone -c "ANALYZE;"
+mysql -u tradezone -p tradezone -e "ANALYZE TABLE users;"  # run on each table or use mysqlcheck -o
 
 # 4. Check disk space
 echo ""
@@ -402,15 +387,15 @@ find /var/log/nginx -type f -mtime +30 -delete
 # 4. Database statistics
 echo ""
 echo "4. Database status:"
-sudo -u postgres psql -d tradezone -c "
-  SELECT 
-    schemaname,
-    tablename,
-    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-  FROM pg_tables 
-  WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-  ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+# MySQL example using information_schema:
+mysql -u tradezone -p tradezone -e "
+  SELECT table_schema, table_name,
+    ROUND((data_length+index_length)/1024/1024,2) AS size_mb
+  FROM information_schema.tables
+  WHERE table_schema='tradezone'
+  ORDER BY size_mb DESC;
 "
+
 
 # 5. Certificate expiry check
 echo ""
@@ -523,22 +508,21 @@ REPORT_FILE="/var/log/tradezone/performance-report-$(date +%Y%m).txt"
   
   echo ""
   echo "3. Database Size:"
-  sudo -u postgres psql -d tradezone -c "
-    SELECT pg_size_pretty(pg_database_size('tradezone'));
-  "
-  
-  echo ""
+# MySQL total size of database:
+mysql -u tradezone -p tradezone -e "
+  SELECT table_schema AS db, 
+    SUM(data_length+index_length)/1024/1024 AS size_mb
+  FROM information_schema.tables
+  WHERE table_schema='tradezone';
+"
   echo "4. Table Sizes:"
-  sudo -u postgres psql -d tradezone -c "
-    SELECT 
-      tablename,
-      pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
-    FROM pg_tables
-    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-    ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
-  "
-  
-  echo ""
+mysql -u tradezone -p tradezone -e "
+  SELECT table_name,
+    ROUND((data_length+index_length)/1024/1024,2) AS size_mb
+  FROM information_schema.tables
+  WHERE table_schema='tradezone'
+  ORDER BY size_mb DESC;
+"
   echo "5. Error Rate (last 7 days):"
   ERROR_COUNT=$(grep "ERROR\|error" /var/log/tradezone/backend.log | wc -l)
   TOTAL_COUNT=$(wc -l < /var/log/tradezone/backend.log)
@@ -570,7 +554,7 @@ sudo systemctl status tradezone.service
 journalctl -u tradezone.service -n 50 | grep -i error
 
 # 3. Check database connection
-sudo -u postgres psql -d tradezone -c "SELECT 1;"
+mysql -u tradezone -p tradezone -e "SELECT 1;"
 
 # 4. Restart service
 sudo systemctl restart tradezone.service
@@ -587,21 +571,22 @@ tail -f /var/log/tradezone/backend.log
 # 1. Stop the application
 sudo systemctl stop tradezone.service
 
-# 2. Start PostgreSQL manually for checking
-sudo systemctl restart postgresql
+# 2. Start MySQL manually for checking
+sudo systemctl restart mysql
 
 # 3. Check database
-sudo -u postgres psql -d tradezone -c "SELECT version();"
+mysql -u tradezone -p tradezone -e "SELECT VERSION();"
 
 # 4. If database is corrupted, use backup:
-sudo -u postgres psql << 'EOF'
-DROP DATABASE tradezone;
-CREATE DATABASE tradezone OWNER tradezone;
+mysql -u root -p << 'EOF'
+DROP DATABASE IF EXISTS tradezone;
+CREATE DATABASE tradezone;
+GRANT ALL PRIVILEGES ON tradezone.* TO 'tradezone'@'localhost';
 EOF
 
 # 5. Restore from backup
 gunzip < /backups/databases/tradezone-20260225.sql.gz | \
-  sudo -u postgres psql -d tradezone
+  mysql -u tradezone -p tradezone
 
 # 6. Restart application
 sudo systemctl start tradezone.service
@@ -615,14 +600,14 @@ sudo systemctl start tradezone.service
 # 1. Stop all services gracefully
 sudo systemctl stop tradezone.service
 sudo systemctl stop nginx
-sudo systemctl stop postgresql
+sudo systemctl stop mysql
 sudo systemctl stop redis-server
 
 # Wait 10 seconds
 sleep 10
 
 # 2. Start services in correct order
-sudo systemctl start postgresql
+sudo systemctl start mysql
 sleep 5
 sudo systemctl start redis-server
 sleep 5  
@@ -631,7 +616,7 @@ sleep 5
 sudo systemctl start nginx
 
 # 3. Verify all running
-systemctl status tradezone.service nginx postgresql redis-server
+systemctl status tradezone.service nginx mysql redis-server
 ```
 
 ---

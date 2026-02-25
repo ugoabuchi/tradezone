@@ -341,7 +341,7 @@ None identified. System is production-ready.
 ### Design Decisions
 - ✅ Factory pattern for extensibility
 - ✅ Webhook-based async processing
-- ✅ PostgreSQL timestamps for audit
+- ✅ MySQL timestamps for audit
 - ✅ Admin configuration for flexibility
 - ✅ Separate user/admin endpoints
 - ✅ Environment-based secrets

@@ -23,9 +23,9 @@ TRADEZONE_DIR="/var/www/tradezone"
 TRADEZONE_USER="tradezone"
 TRADEZONE_GROUP="tradezone"
 NODEJS_VERSION="18"
-POSTGRES_USER="tradezone"
-POSTGRES_DB="tradezone"
-POSTGRES_PORT="5432"
+MYSQL_USER="tradezone"
+MYSQL_DB="tradezone"
+MYSQL_PORT="3306"
 
 ################################################################################
 # Helper Functions
@@ -117,30 +117,26 @@ install_nodejs() {
     print_success "npm $(npm -v) installed"
 }
 
-install_postgresql() {
-    print_header "Installing PostgreSQL"
+install_mysql() {
+    print_header "Installing MySQL Server"
     
-    if command_exists psql; then
-        print_warning "PostgreSQL already installed"
+    if command_exists mysql; then
+        print_warning "MySQL already installed"
         return
     fi
     
-    print_info "Adding PostgreSQL repository..."
-    sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-    wget -qO - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
-    
     apt-get update -qq
     
-    print_info "Installing PostgreSQL..."
-    apt-get install -y -qq postgresql postgresql-contrib
+    print_info "Installing MySQL..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mysql-server
     
-    print_success "PostgreSQL installed"
+    print_success "MySQL installed"
     
-    # Start PostgreSQL
-    systemctl enable postgresql
-    systemctl start postgresql
+    # Start MySQL
+    systemctl enable mysql
+    systemctl start mysql
     
-    print_success "PostgreSQL service started and enabled"
+    print_success "MySQL service started and enabled"
 }
 
 install_redis() {
@@ -222,43 +218,26 @@ clone_or_update_repo() {
 }
 
 setup_database() {
-    print_header "Setting Up PostgreSQL Database"
+    print_header "Setting Up MySQL Database"
     
     print_info "Creating database user..."
     
     # Generate a random password
     DB_PASSWORD=$(openssl rand -base64 32)
     
-    # Create user and database
-    sudo -u postgres psql <<EOF
--- Drop existing user if exists
-SELECT pg_terminate_backend(pg_stat_activity.pid)
-FROM pg_stat_activity
-WHERE pg_stat_activity.datname = '$POSTGRES_DB'
-AND pid <> pg_backend_pid();
-
-DROP DATABASE IF EXISTS $POSTGRES_DB;
-DROP USER IF EXISTS $POSTGRES_USER;
-
--- Create user
-CREATE USER $POSTGRES_USER WITH PASSWORD '$DB_PASSWORD';
-
--- Create database
-CREATE DATABASE $POSTGRES_DB OWNER $POSTGRES_USER;
-
--- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE $POSTGRES_DB TO $POSTGRES_USER;
-
--- Enable extensions
-\c $POSTGRES_DB
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-
-EOF
+    # Create user and database using mysql CLI
+    mysql -u root -e "
+DROP DATABASE IF EXISTS \\`${MYSQL_DB}\\`;
+DROP USER IF EXISTS '${MYSQL_USER}'@'localhost';
+CREATE DATABASE \\`${MYSQL_DB}\\`;
+CREATE USER '${MYSQL_USER}'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
+GRANT ALL PRIVILEGES ON \\`${MYSQL_DB}\\`.* TO '${MYSQL_USER}'@'localhost';
+FLUSH PRIVILEGES;
+" 2>/dev/null
 
     print_success "Database and user created"
-    print_info "Database: $POSTGRES_DB"
-    print_info "User: $POSTGRES_USER"
+    print_info "Database: $MYSQL_DB"
+    print_info "User: $MYSQL_USER"
     print_warning "Password: $DB_PASSWORD (save this!)"
 }
 
@@ -269,7 +248,7 @@ setup_environment_files() {
     print_info "Creating backend/.env..."
     cat > "$TRADEZONE_DIR/backend/.env" <<EOF
 # Database
-DATABASE_URL=postgresql://$POSTGRES_USER:$DB_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB
+DATABASE_URL=mysql://$MYSQL_USER:$DB_PASSWORD@localhost:$MYSQL_PORT/$MYSQL_DB
 
 # Server
 NODE_ENV=production
@@ -375,7 +354,7 @@ run_database_migrations() {
     
     print_info "Running migrations..."
     sudo -u "$TRADEZONE_USER" npm run migrate 2>/dev/null || \
-    sudo -u "$TRADEZONE_USER" DATABASE_URL="postgresql://$POSTGRES_USER:$DB_PASSWORD@localhost:$POSTGRES_PORT/$POSTGRES_DB" node -e "require('./src/config/migrations.ts')"
+    sudo -u "$TRADEZONE_USER" DATABASE_URL="mysql://$MYSQL_USER:$DB_PASSWORD@localhost:$MYSQL_PORT/$MYSQL_DB" node -e "require('./src/config/migrations.ts')"
     
     print_success "Migrations completed"
 }
@@ -548,7 +527,7 @@ setup_systemd_service() {
     cat > /etc/systemd/system/tradezone.service <<EOF
 [Unit]
 Description=TradeZone Backend API
-After=network.target postgresql.service
+After=network.target mysql.service
 
 [Service]
 Type=simple
@@ -693,8 +672,8 @@ setup_dummy_accounts() {
     # Note: Passwords should be hashed in production, but we're using plaintext for demo
     # The app itself should hash these on creation
     
-    sudo -u postgres psql -d "$POSTGRES_DB" <<EOADMIN
--- Insert admin user
+    mysql -u $MYSQL_USER -p$DB_PASSWORD $MYSQL_DB <<EOADMIN
+-- Insert admin user (ignore errors on duplicate key)
 INSERT INTO users (email, password_hash, full_name, created_at, updated_at) 
 VALUES (
     '$ADMIN_EMAIL',
@@ -703,7 +682,7 @@ VALUES (
     NOW(),
     NOW()
 )
-ON CONFLICT DO NOTHING;
+ON DUPLICATE KEY UPDATE email=email;
 
 -- Insert regular user
 INSERT INTO users (email, password_hash, full_name, created_at, updated_at) 
@@ -714,7 +693,7 @@ VALUES (
     NOW(),
     NOW()
 )
-ON CONFLICT DO NOTHING;
+ON DUPLICATE KEY UPDATE email=email;
 EOADMIN
 
     # Save credentials to a file
@@ -864,7 +843,7 @@ main() {
     check_root
     install_system_dependencies
     install_nodejs
-    install_postgresql
+    install_mysql
     install_redis
     create_system_user
     setup_project_directory

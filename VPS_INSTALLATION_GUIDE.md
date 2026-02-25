@@ -68,7 +68,7 @@ sudo bash install.sh
 ```
 
 The script will:
-1. ✅ Install system dependencies (Node.js, PostgreSQL, Apache2, etc.)
+1. ✅ Install system dependencies (Node.js, MySQL, Apache2, etc.)
 2. ✅ Create `tradezone` system user
 3. ✅ Setup project directory
 4. ✅ Clone/update repository
@@ -127,7 +127,7 @@ sudo certbot --apache -d your-domain.com -m your-email@example.com --agree-tos -
 
 During installation, a random password is generated. Find it in:
 ```bash
-grep "POSTGRES_USER\|DB_PASSWORD" /var/www/tradezone/backend/.env
+grep "DB_USER\|DB_PASSWORD" /var/www/tradezone/backend/.env # MySQL user is stored under DB_USER or similar
 ```
 
 Or check installation logs:
@@ -140,7 +140,7 @@ tail -100 ~/.install_log
 **Backend (.env)**
 ```
 # Database (auto-configured)
-DATABASE_URL=postgresql://tradezone:PASSWORD@localhost:5432/tradezone
+DATABASE_URL=mysql://tradezone:PASSWORD@localhost:3306/tradezone
 
 # Server
 NODE_ENV=production
@@ -188,7 +188,7 @@ sudo systemctl status tradezone.service
 # Apache2 status
 sudo systemctl status apache2
 
-# PostgreSQL status
+# MySQL status
 sudo systemctl status postgresql
 
 # Redis status (if installed)
@@ -219,7 +219,7 @@ All services are auto-enabled. If needed, re-enable:
 ```bash
 sudo systemctl enable tradezone.service
 sudo systemctl enable apache2
-sudo systemctl enable postgresql
+sudo systemctl enable mysql
 ```
 
 ---
@@ -308,12 +308,13 @@ sudo systemctl status certbot.timer
 
 ### Update Passwords
 
-Change PostgreSQL password:
+Change MySQL password:
 ```bash
-sudo -u postgres psql
-\c tradezone
-ALTER USER tradezone WITH PASSWORD 'newpassword';
-\q
+mysql -u root -p
+USE mysql;
+ALTER USER 'tradezone'@'localhost' IDENTIFIED BY 'newpassword';
+FLUSH PRIVILEGES;
+EXIT;
 ```
 
 ---
@@ -342,17 +343,17 @@ sudo systemctl restart tradezone.service
 
 **Solution:**
 ```bash
-# Check PostgreSQL running
-sudo systemctl status postgresql
+# Check MySQL running
+sudo systemctl status mysql
 
 # Verify credentials in .env
 grep DATABASE_URL /var/www/tradezone/backend/.env
 
 # Test connection
-sudo -u postgres psql -c "SELECT version();"
+mysql -u tradezone -p -e "SELECT VERSION();"
 
 # Restart database
-sudo systemctl restart postgresql
+sudo systemctl restart mysql
 ```
 
 ### Apache2 502 Bad Gateway
@@ -438,10 +439,10 @@ The script already includes:
 
 ```bash
 # Analyze query performance
-sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
+# MySQL automatically has performance_schema enabled; no extension required
 
 # View slow queries
-sudo -u postgres psql -c "SELECT query, calls, total_time FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10;"
+# Use MySQL slow query log or performance_schema to inspect heavy queries
 ```
 
 ### Monitor Resources
@@ -503,7 +504,7 @@ cd /var/www/tradezone/backend
 sudo -u tradezone npm run migrate
 
 # Or with direct command:
-sudo -u tradezone DATABASE_URL="postgresql://..." npm run migrate
+sudo -u tradezone DATABASE_URL="mysql://..." npm run migrate
 ```
 
 ---
@@ -514,20 +515,20 @@ sudo -u tradezone DATABASE_URL="postgresql://..." npm run migrate
 
 ```bash
 # Full backup
-sudo -u postgres pg_dump tradezone > tradezone-backup-$(date +%Y%m%d).sql
+mysqldump -u tradezone -ptradezone_password tradezone > tradezone-backup-$(date +%Y%m%d).sql
 
 # Compressed backup
-sudo -u postgres pg_dump tradezone | gzip > tradezone-backup-$(date +%Y%m%d).sql.gz
+mysqldump -u tradezone -ptradezone_password tradezone | gzip > tradezone-backup-$(date +%Y%m%d).sql.gz
 ```
 
 ### Restore Database
 
 ```bash
 # From SQL file
-sudo -u postgres psql tradezone < tradezone-backup-20260225.sql
+mysql -u tradezone -p tradezone < tradezone-backup-20260225.sql
 
 # From compressed file
-gunzip -c tradezone-backup-20260225.sql.gz | sudo -u postgres psql tradezone
+gunzip -c tradezone-backup-20260225.sql.gz | mysql -u tradezone -p tradezone
 ```
 
 ### Backup Application Files
@@ -595,11 +596,11 @@ sudo systemctl restart tradezone.service
 sudo systemctl restart apache2
 
 # Check database
-sudo -u postgres psql tradezone
+mysql -u tradezone -p tradezone
 
 # Manual database reset (dangerous!)
 sudo systemctl stop tradezone.service
-sudo -u postgres psql -c "DROP DATABASE tradezone;"
+mysql -u root -p -e "DROP DATABASE IF EXISTS tradezone;"
 sudo systemctl start tradezone.service
 ```
 

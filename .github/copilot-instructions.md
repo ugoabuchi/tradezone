@@ -37,7 +37,7 @@ tradezone/
 │   ├── tsconfig.json
 │   ├── vite.config.ts
 │   └── .env.example
-├── docker-compose.yml   # PostgreSQL development setup
+├── docker-compose.yml   # MySQL development setup
 ├── package.json         # Root workspace package.json
 └── README.md
 ```
@@ -47,7 +47,7 @@ tradezone/
 ### Backend
 - Node.js 16+ with Express.js
 - TypeScript for type safety
-- PostgreSQL database with connection pooling
+- MySQL database with connection pooling
 - JWT authentication with bcrypt hashing
 - Socket.io for real-time WebSocket communication
 - CoinGecko API for live cryptocurrency data
@@ -99,7 +99,7 @@ tradezone/
 ### Prerequisites
 - Node.js 16+
 - Docker and Docker Compose (recommended)
-- PostgreSQL 14+ (or use Docker)
+- MySQL 8+ (or use Docker)
 
 ### Installation & Setup
 
@@ -127,7 +127,7 @@ cp frontend/.env.example frontend/.env
 # Edit frontend/.env with your configuration
 ```
 
-4. **Start PostgreSQL (using Docker):**
+4. **Start MySQL (using Docker):**
 ```bash
 docker-compose up -d
 ```
@@ -284,7 +284,7 @@ Password: demo123456
 
 ### Backend (.env)
 ```
-DATABASE_URL=postgresql://user:pass@localhost:5432/tradezone
+DATABASE_URL=mysql://user:pass@localhost:3306/tradezone
 JWT_SECRET=your-secret-key
 JWT_EXPIRY=7d
 PORT=3001
@@ -306,20 +306,20 @@ VITE_WS_URL=ws://localhost:3001
 
 ### Database Connection Error
 ```bash
-# Check if PostgreSQL is running
+# Check if MySQL is running
 docker-compose ps
 
 # View logs
-docker-compose logs postgres
+docker-compose logs mysql
 
 # Restart if needed
-docker-compose restart postgres
+docker-compose restart mysql
 ```
 
 ### Port Already in Use
 - Backend default: 3001
 - Frontend default: 5173
-- PostgreSQL default: 5432
+- MySQL default: 3306
 
 ### CORS Errors
 Check that `CORS_ORIGIN` in backend `.env` matches your frontend URL

@@ -1,8 +1,8 @@
--- Create payment ledger table for audit trail and double-entry bookkeeping
+-- Create payment ledger table for audit trail and double-entry bookkeeping (MySQL compatible)
 CREATE TABLE IF NOT EXISTS payment_ledger (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id UUID REFERENCES payments(id) ON DELETE SET NULL,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+  payment_id VARCHAR(36) NULL,
+  user_id VARCHAR(36) NOT NULL,
   transaction_type VARCHAR(50) NOT NULL, -- 'credit', 'debit', 'refund', 'fee'
   amount DECIMAL(15, 2) NOT NULL,
   currency VARCHAR(3) NOT NULL DEFAULT 'USD',
@@ -14,11 +14,14 @@ CREATE TABLE IF NOT EXISTS payment_ledger (
   
   INDEX idx_user_id_created_at (user_id, created_at),
   INDEX idx_payment_id (payment_id),
-  INDEX idx_transaction_type (transaction_type)
-);
+  INDEX idx_transaction_type (transaction_type),
+  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 -- Create view for payment statistics
-CREATE OR REPLACE VIEW payment_statistics AS
+DROP VIEW IF EXISTS payment_statistics;
+CREATE VIEW payment_statistics AS
 SELECT
   DATE(p.created_at) as date,
   p.gateway,
@@ -30,11 +33,12 @@ SELECT
   COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.fee ELSE 0 END), 0) as total_fees,
   COALESCE(AVG(CASE WHEN p.status = 'completed' THEN p.amount ELSE NULL END), 0) as avg_transaction_amount
 FROM payments p
-WHERE p.created_at >= CURRENT_DATE - INTERVAL '30 days'
+WHERE p.created_at >= CURDATE() - INTERVAL 30 DAY
 GROUP BY DATE(p.created_at), p.gateway, p.currency;
 
 -- Create view for gateway health metrics
-CREATE OR REPLACE VIEW gateway_health_metrics AS
+DROP VIEW IF EXISTS gateway_health_metrics;
+CREATE VIEW gateway_health_metrics AS
 SELECT
   pgc.gateway_name,
   pgc.display_name,
@@ -51,5 +55,5 @@ SELECT
   pgc.last_test_result
 FROM payment_gateway_configs pgc
 LEFT JOIN payments p ON pgc.gateway_name = p.gateway 
-  AND p.created_at >= CURRENT_DATE - INTERVAL '30 days'
+  AND p.created_at >= CURDATE() - INTERVAL 30 DAY
 GROUP BY pgc.id, pgc.gateway_name, pgc.display_name, pgc.enabled, pgc.last_tested_at, pgc.last_test_result;

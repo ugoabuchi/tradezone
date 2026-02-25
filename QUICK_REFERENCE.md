@@ -42,7 +42,7 @@ chmod +x install.sh && sudo bash install.sh
 ### Check If Everything Is Running
 ```bash
 # All services status
-sudo systemctl status tradezone.service apache2 postgresql
+sudo systemctl status tradezone.service apache2 mysql
 
 # Backend health
 curl http://localhost:3001/health
@@ -69,7 +69,7 @@ journalctl -u tradezone.service -f
 sudo systemctl restart tradezone.service
 
 # Restart all
-sudo systemctl restart tradezone.service apache2 postgresql
+sudo systemctl restart tradezone.service apache2 mysql
 
 # Start the daily check
 ./daily-check.sh  # (from root dir)
@@ -106,11 +106,11 @@ watch -n 1 'ps aux | head'  # Update every second
 
 ### Database Check
 ```bash
-# Check database
-sudo -u postgres psql -d tradezone -c "SELECT datname, numbackends FROM pg_stat_database WHERE datname='tradezone';"
+# Check database (MySQL)
+sudo mysql -u root -e "SHOW DATABASES;"
 
 # Check tables
-sudo -u postgres psql -d tradezone -c "\dt"
+sudo mysql -u tradezone -ptradezone_password tradezone -e "SHOW TABLES;"
 ```
 
 ### API Health
@@ -143,14 +143,14 @@ sudo systemctl status tradezone.service
 
 ### Can't Connect to Database
 ```bash
-# Check if PostgreSQL running
-sudo systemctl status postgresql
+# Check if MySQL running
+sudo systemctl status mysql
 
 # Start it
-sudo systemctl start postgresql
+sudo systemctl start mysql
 
 # Test connection
-sudo -u postgres psql -c "SELECT 1;"
+mysql -u tradezone -ptradezone_password -e "SELECT 1;" tradezone
 ```
 
 ### Port Already in Use
@@ -172,7 +172,7 @@ df -h
 
 # Find large files
 du -sh /var/log/tradezone/
-du -sh /var/lib/postgresql/
+du -sh /var/lib/mysql/
 
 # Clean old logs
 sudo journalctl --vacuum=100M
@@ -230,14 +230,15 @@ sudo systemctl reboot  # If needed
 ### Database Optimization
 ```bash
 # Create indexes
-sudo -u postgres psql -d tradezone << 'EOF'
+mysql -u tradezone -ptradezone_password tradezone << 'EOF'
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_wallets_user_id ON wallets(user_id);
 ANALYZE;
 EOF
 
 # Optimize
-sudo -u postgres vacuumdb -d tradezone
+mysqlcheck -u tradezone -ptradezone_password --optimize tradezone
+
 ```
 
 ---
@@ -246,7 +247,7 @@ sudo -u postgres vacuumdb -d tradezone
 
 ### Backup Database Now
 ```bash
-sudo -u postgres pg_dump tradezone | gzip > tradezone-$(date +%Y%m%d).sql.gz
+mysqldump -u tradezone -ptradezone_password tradezone | gzip > tradezone-$(date +%Y%m%d).sql.gz
 ```
 
 ### Setup Daily Backups
@@ -266,12 +267,12 @@ cat /var/log/tradezone/backup.log
 sudo systemctl stop tradezone.service
 
 # Drop and recreate database
-sudo -u postgres psql -c "DROP DATABASE tradezone;"
-sudo -u postgres psql -c "CREATE DATABASE tradezone OWNER tradezone;"
+mysql -u root -proot_password -e "DROP DATABASE IF EXISTS tradezone;"
+mysql -u root -proot_password -e "CREATE DATABASE tradezone; GRANT ALL PRIVILEGES ON tradezone.* TO 'tradezone'@'localhost';"
 
 # Restore from backup
 gunzip < /backups/databases/tradezone-20260225.sql.gz | \
-  sudo -u postgres psql -d tradezone
+  mysql -u tradezone -ptradezone_password tradezone
 
 # Start app
 sudo systemctl start tradezone.service
@@ -309,7 +310,7 @@ sudo systemctl start tradezone.service
 | **Can't access website** | Check DNS: `nslookup your-domain.com` → Check Apache2: `sudo apache2ctl configtest` |
 | **API returns 502** | Check backend: `systemctl status tradezone.service` → check logs → restart |
 | **Slow response** | Check resources: `free -h` / `df -h` / `top` → check logs → optimize |
-| **Database error** | Check DB: `sudo -u postgres psql -d tradezone -c "SELECT 1;"` → check logs |
+| **Database error** | Check DB: `mysql -u tradezone -ptradezone_password -e "SELECT 1;" tradezone` → check logs |
 | **Payment not working** | Verify API keys in `.env` → Check logs → Run webhook test |
 | **SSL error** | Check cert: `sudo certbot certificates` → Renew: `sudo certbot renew` |
 
@@ -326,7 +327,7 @@ echo "=== TradeZone Quick Check ==="
 echo "1. Services:"
 systemctl is-active tradezone.service && echo "✅ Backend" || echo "❌ Backend"
 systemctl is-active apache2 && echo "✅ Apache2" || echo "❌ Apache2"
-systemctl is-active postgresql && echo "✅ Database" || echo "❌ Database"
+systemctl is-active mysql && echo "✅ Database" || echo "❌ Database"
 
 # 2. API
 echo ""
@@ -341,7 +342,7 @@ curl -s -o /dev/null -w "Status: %{http_code}\n" https://your-domain.com
 # 4. Database
 echo ""
 echo "4. Database:"
-sudo -u postgres psql -d tradezone -c "SELECT COUNT(*) FROM users;" 2>/dev/null && echo "✅ DB" || echo "❌ DB"
+mysql -u tradezone -ptradezone_password -e "SELECT COUNT(*) FROM users;" tradezone 2>/dev/null && echo "✅ DB" || echo "❌ DB"
 
 echo ""
 echo "=== Done ==="
@@ -440,14 +441,14 @@ tail -1000 /var/log/tradezone/backend.log | grep -i error | wc -l  # Error count
 ```bash
 sudo systemctl stop tradezone.service
 sudo systemctl stop apache2
-sudo systemctl restart postgresql
+sudo systemctl restart mysql
 sleep 5
 sudo systemctl start tradezone.service
 sleep 5
 sudo systemctl start apache2
 
 # Verify
-sudo systemctl status tradezone.service apache2 postgresql
+sudo systemctl status tradezone.service apache2 mysql
 ```
 
 ### Cannot Access Web
@@ -470,7 +471,7 @@ curl http://localhost:3001
 ```bash
 # Restore latest backup
 gunzip < /backups/databases/tradezone-LATEST.sql.gz | \
-  sudo -u postgres psql -d tradezone
+  mysql -u tradezone -p tradezone
 
 # Restart
 sudo systemctl restart tradezone.service

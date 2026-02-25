@@ -105,16 +105,16 @@ Once you've verified functionality:
 If you need to access the database directly:
 
 ```
-Database Type:  PostgreSQL
+Database Type:  MySQL
 Host:           localhost
-Port:           5432
+Port:           3306
 Database:       tradezone
 User:           tradezone
 ```
 
 **Connection string:**
 ```bash
-psql -h localhost -U tradezone -d tradezone
+mysql -h localhost -u tradezone -p tradezone
 ```
 
 ### Database Location
@@ -134,7 +134,7 @@ If you forget your password or get locked out:
 ssh user@yourdomain.com
 
 # Connect to database
-sudo -u postgres psql -d tradezone
+mysql -u tradezone -p tradezone
 
 # Update password with bcrypt hash
 -- Generate bcrypt hash password using NodeJS or online tool
@@ -180,7 +180,7 @@ The installation script creates environment files at:
 
 Key variables:
 ```bash
-DATABASE_URL=postgresql://tradezone:password@localhost:5432/tradezone
+DATABASE_URL=mysql://tradezone:password@localhost:3306/tradezone
 JWT_SECRET=your-secret-key-here
 JWT_EXPIRY=7d
 PORT=3001
@@ -205,7 +205,7 @@ VITE_WS_URL=wss://yourdomain.com
 
 ### Cannot Login
 1. Verify credentials are correct (check email spelling)
-2. Check database is running: `systemctl status postgresql`
+2. Check database is running: `systemctl status mysql`
 3. Check backend service: `systemctl status tradezone.service`
 4. View logs: `journalctl -u tradezone.service -n 50`
 

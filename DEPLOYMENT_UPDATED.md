@@ -121,7 +121,7 @@ This document summarizes the complete conversion from Nginx to Apache2 as the re
 
 ### What It Does
 The `setup_dummy_accounts()` function (added to install.sh):
-1. Creates two test accounts in the PostgreSQL database
+1. Creates two test accounts in the MySQL database
 2. Saves credentials to `/var/www/tradezone/DUMMY_ACCOUNTS.txt` (access restricted to root)
 3. Displays account information on installation completion
 
@@ -195,7 +195,7 @@ After running the updated `install.sh`, verify:
 
 - [ ] **Services Running:**
   ```bash
-  sudo systemctl status tradezone.service apache2 postgresql
+  sudo systemctl status tradezone.service apache2 mysql
   ```
 
 - [ ] **Apache2 Config Valid:**
@@ -362,7 +362,7 @@ sudo ss -tulpn | grep :443
 ### Dummy accounts not working
 ```bash
 # Check if accounts were created
-sudo -u postgres psql -d tradezone -c "SELECT email, full_name FROM users;"
+mysql -u tradezone -p tradezone -e "SELECT email, full_name FROM users;"
 
 # Check backend logs
 tail -f /var/log/tradezone/backend.log

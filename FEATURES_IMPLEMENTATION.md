@@ -284,7 +284,7 @@ For detailed API documentation, see individual route files:
 Ensure all API keys are set in `.env` before starting the server.
 
 ### Database Connection Error
-Verify PostgreSQL is running:
+Verify MySQL is running:
 ```bash
 docker-compose up -d
 ```

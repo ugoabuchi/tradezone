@@ -13,7 +13,7 @@
 ```
 ✅ install.sh (21 KB)
    • One-command automated VPS deployment
-   • Installs all dependencies (Node.js, PostgreSQL, Nginx, Redis)
+   • Installs all dependencies (Node.js, MySQL, Nginx, Redis)
    • Configures SSL/TLS with Let's Encrypt
    • Sets up reverse proxy and systemd service
    • Runs database migrations
@@ -64,7 +64,7 @@
    • Database optimization (indexes, tuning)
    • Connection pooling for high concurrency
    • Express middleware optimization
-   • PostgreSQL configuration by server size
+   • MySQL configuration by server size
    • Query optimization patterns
    • Redis caching implementation
    • Nginx performance tuning
@@ -203,7 +203,7 @@
 ### Production-Ready Features
 ✅ SSL/TLS with automatic renewal (Let's Encrypt)
 ✅ Nginx reverse proxy configuration
-✅ PostgreSQL database with migrations
+✅ MySQL database with migrations
 ✅ Redis caching layer support
 ✅ PM2 process management with clustering
 ✅ Systemd service for auto-start
@@ -224,7 +224,7 @@
 ### Immediate (Next 10 minutes)
 ✅ Run `bash install.sh` and have a fully functional production deployment
 ✅ Get HTTPS/SSL working automatically
-✅ Have PostgreSQL database configured automatically
+✅ Have MySQL database configured automatically
 ✅ Have Nginx serving frontend automatically
 ✅ Have backend API running automatically
 

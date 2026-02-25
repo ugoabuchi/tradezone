@@ -182,7 +182,7 @@ The installation script automatically creates:
 
 ```bash
 # Check status
-sudo systemctl status apache2 tradezone.service postgresql
+sudo systemctl status apache2 tradezone.service mysql
 
 # View logs
 tail -f /var/log/tradezone/backend.log
@@ -308,7 +308,7 @@ See `INSTALLATION_TROUBLESHOOTING.md` for solutions to:
 | Frontend | ✅ Ready | React 18 |
 | Backend | ✅ Ready | Node.js 18+ |
 | Web Server | ✅ Ready | Apache2 2.4.41+ |
-| Database | ✅ Ready | PostgreSQL 14+ |
+| Database | ✅ Ready | MySQL 14+ |
 | SSL/TLS | ✅ Ready | Let's Encrypt |
 | Test Accounts | ✅ Ready | Dual accounts |
 | Documentation | ✅ Complete | Full coverage |

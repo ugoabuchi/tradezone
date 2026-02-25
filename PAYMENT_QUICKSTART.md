@@ -82,8 +82,8 @@ npm run dev
 ```
 
 The server will:
-1. Connect to PostgreSQL
-2. Run database migrations automatically
+1. Connect to MySQL
+2. Run database migrations automatically (MySQL-compatible scripts)
 3. Create payment tables
 4. Load gateway configurations
 5. Start listening on port 3001
@@ -314,7 +314,7 @@ For detailed information, see:
 
 **Database Issues:**
 - Migrations run automatically on server start
-- Check PostgreSQL is running: `docker-compose ps`
+- Check MySQL is running: `docker-compose ps`
 - Verify DATABASE_URL in .env
 - Check migration logs in terminal
 

@@ -226,7 +226,7 @@ System:    journalctl -u tradezone.service
 ### Common Commands
 ```
 # Status check
-sudo systemctl status apache2 tradezone.service postgresql
+sudo systemctl status apache2 tradezone.service mysql
 
 # View logs
 tail -f /var/log/tradezone/backend.log
@@ -259,7 +259,7 @@ USER:   user@tradezone.local / User@123456
 ### Services
 - Frontend: Served by Apache2 on port 443 (HTTPS)
 - Backend: Express.js on port 3001 (proxied through Apache2)
-- Database: PostgreSQL on port 5432
+- Database: MySQL on port 3306
 - Reverse Proxy: Apache2 on ports 80 & 443
 
 ---

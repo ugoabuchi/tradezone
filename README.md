@@ -19,7 +19,7 @@ A professional, production-ready cryptocurrency exchange platform built with mod
 - 📋 Full order history and management
 - 🔄 Real-time order book
 - 🛡️ Production-grade security (CORS, rate limiting, input validation, AES-256 encryption)
-- 🗄️ PostgreSQL database with optimized queries
+- 🗄️ MySQL 8+ database with optimized queries
 - ⚡ Responsive React UI with TypeScript
 
 ## Tech Stack
@@ -27,7 +27,7 @@ A professional, production-ready cryptocurrency exchange platform built with mod
 ### Backend
 - **Node.js** with Express.js
 - **TypeScript** for type safety
-- **PostgreSQL** for data persistence
+- **MySQL** for data persistence
 - **JWT** for authentication
 - **WebSocket** for real-time updates
 - **CoinGecko API** for live crypto prices
@@ -79,7 +79,7 @@ tradezone/
 ### Prerequisites
 - Node.js 16+ and npm
 - Docker and Docker Compose (optional, for database)
-- PostgreSQL 14+ (or use Docker)
+- MySQL 8+ (or use Docker)
 
 ### Installation
 
@@ -94,7 +94,7 @@ npm install
 **Backend (.env file):**
 ```bash
 # Database
-DATABASE_URL=postgresql://tradezone:password@localhost:5432/tradezone
+DATABASE_URL=mysql://tradezone:password@localhost:3306/tradezone
 
 # JWT
 JWT_SECRET=your-secret-key-change-this-in-production
@@ -115,8 +115,7 @@ VITE_WS_URL=ws://localhost:3001
 ```
 
 3. **Start with Docker (recommended):**
-```bash
-docker-compose up -d
+```bash# the compose file now starts a MySQL service instead of Postgresdocker-compose up -d
 npm run dev
 ```
 

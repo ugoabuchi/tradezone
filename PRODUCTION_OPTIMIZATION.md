@@ -19,7 +19,7 @@ iostat -xm 1 5
 top -bn1 | head -20
 
 # Current database size
-du -sh /var/lib/postgresql/14/main
+du -sh /var/lib/mysql
 
 # Current application logs size
 du -sh /var/log/tradezone/
@@ -132,31 +132,21 @@ if (global.gc) {
 
 ### 3. Connection Pooling Optimization
 
-Update database pool in `backend/src/config/database.ts`:
+Update database pool in `backend/src/config/database.ts` (mysql2 example):
 
 ```javascript
-const pool = new pg.Pool({
-  max: 20,                    // Max connections (increase from default 10)
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  application_name: 'tradezone-api',
-  // Connection reuse optimization
-  statement_cache_size: 25,
-  query_timeout: 30000
+import mysql from 'mysql2/promise';
+
+const pool = mysql.createPool({
+  uri: process.env.DATABASE_URL,
+  connectionLimit: 20,       // max connections
+  waitForConnections: true,
+  queueLimit: 0,
+  // other mysql2 pool options...
 });
 ```
 
-For high concurrency, increase further:
-
-```javascript
-const pool = new pg.Pool({
-  max: 50,                    // For >100 req/sec
-  min: 5,                     // Maintain minimum connections
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  query_timeout: 60000        // 60 second timeout for complex queries
-});
-```
+For high concurrency bump `connectionLimit` to 50+ and ensure the server's `max_connections` is tuned.
 
 ---
 
@@ -198,74 +188,69 @@ app.use((req, res, next) => {
 
 ## 💾 Database Optimization
 
-### 1. PostgreSQL Configuration
+### 1. MySQL Configuration
 
-Edit `/etc/postgresql/14/main/postgresql.conf`:
+Edit the MySQL configuration (e.g. `/etc/mysql/my.cnf` or `/etc/mysql/mysql.conf.d/mysqld.cnf`):
 
 ```bash
-sudo nano /etc/postgresql/14/main/postgresql.conf
+sudo nano /etc/mysql/my.cnf
 ```
 
-Update these settings based on server RAM:
+Tuning values vary by distribution; typical settings for an 8GB server might include:
 
 ```ini
-# For 2GB server:
-shared_buffers = 512MB           # 25% of RAM
-effective_cache_size = 1536MB    # 75% of RAM
-work_mem = 32MB
-wal_buffers = 16MB
+[mysqld]
+# Basic memory settings
+innodb_buffer_pool_size=4G      # ~50% of RAM for InnoDB
+innodb_log_file_size=512M
+innodb_log_buffer_size=64M
+innodb_flush_method=O_DIRECT
 
-# For 4GB server:
-shared_buffers = 1GB
-effective_cache_size = 3GB
-work_mem = 64MB
-wal_buffers = 16MB
+# Connections
+max_connections=500
+innodb_thread_concurrency=0
 
-# For 8GB+ server:
-shared_buffers = 2GB
-effective_cache_size = 6GB
-work_mem = 128MB
-wal_buffers = 16MB
+# Performance
+innodb_io_capacity=200
+innodb_io_capacity_max=400
+query_cache_type=0
+query_cache_size=0
+slow_query_log=1
+slow_query_log_file=/var/log/mysql/slow.log
+long_query_time=1
 
-# Connection settings
-max_connections = 200
-max_prepared_transactions = 100
-
-# Performance settings
-random_page_cost = 1.1           # For SSD
-effective_io_concurrency = 200
-
-# Logging
-log_min_duration_statement = 1000  # Log queries >1 second
+# Binary log for replication/backup
+log_bin=/var/log/mysql/mysql-bin.log
+binlog_format=row
 ```
 
-Restart PostgreSQL:
+Restart MySQL:
 
 ```bash
-sudo systemctl restart postgresql
+sudo systemctl restart mysql
 ```
 
 ---
 
-### 2. Create Database Indexes
+### 2. Create Database Indexes (MySQL)
 
 ```bash
-sudo -u postgres psql -d tradezone << 'EOF'
+mysql -u tradezone -ptradezone_password tradezone << 'EOF'
 
 -- Indexes on users table
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 
 -- Indexes on orders table
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_symbol ON orders(symbol);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_user_status ON orders(user_id, status);
 
 -- Indexes on transactions table
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
 
 -- Indexes on wallets table
 CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
@@ -273,7 +258,8 @@ CREATE INDEX IF NOT EXISTS idx_wallets_currency ON wallets(currency);
 
 -- Indexes on payments table
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+EOF
+```CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_payments_gateway ON payments(gateway);
 CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC);
 
@@ -286,26 +272,35 @@ EOF
 Verify indexes:
 
 ```bash
-sudo -u postgres psql -d tradezone -c "\d+ orders" | grep indexes
+mysql -u tradezone -p tradezone -e "SHOW INDEX FROM orders;" | grep Key_name
 ```
 
 ---
 
 ### 3. Query Optimization
 
-Enable query logging to find slow queries:
+Enable slow query logging in MySQL by editing the configuration and restarting the service. For example, in `/etc/mysql/my.cnf`:
+
+```ini
+slow_query_log = 1
+long_query_time = 1
+log_output = FILE
+slow_query_log_file = /var/log/mysql/slow.log
+```
+
+Then restart MySQL:
 
 ```bash
-sudo -u postgres psql << 'EOF'
-ALTER SYSTEM SET log_min_duration_statement = 1000;  -- Log queries > 1 second
-SELECT pg_reload_conf();
-EOF
+sudo systemctl restart mysql
+```
+
+You can view the slow log with `tail -f /var/log/mysql/slow.log`.
 ```
 
 View slow queries:
 
 ```bash
-tail -50 /var/log/postgresql/postgresql.log | grep "duration:"
+# (MySQL slow query log can be checked separately, path varies)
 ```
 
 Common optimization patterns:
@@ -337,13 +332,17 @@ sudo crontab -e
 
 # Add these lines:
 # VACUUM and ANALYZE daily at 2 AM
-0 2 * * * /usr/bin/sudo -u postgres /usr/lib/postgresql/14/bin/vacuumdb -d tradezone -a -z
+# MySQL auto-optimisation: use `mysqlcheck --auto-repair` or configure `innodb_autoinc_lock_mode``
 
 # Reindex weekly on Sunday at 3 AM
-0 3 * * 0 /usr/bin/sudo -u postgres /usr/lib/postgresql/14/bin/reindexdb -d tradezone
+# MySQL reindexing is automatic; run `ALTER TABLE tbl_name ENGINE=InnoDB;` if needed
 
 # Backup daily at 4 AM
-0 4 * * * /usr/bin/sudo -u postgres /usr/bin/pg_dump tradezone | gzip > /backups/tradezone-$(date +\%Y\%m\%d).sql.gz
+0 4 * * * mysqldump -u tradezone -ptradezone_password tradezone | gzip > /backups/tradezone-$(date +\%Y\%m\%d).sql.gz
+
+<!-- If you are migrating from a PostgreSQL installation, convert any old
+pg_dump files before restoring; see INSTALLATION_TROUBLESHOOTING.md for
+conversion tips. -->
 ```
 
 ---
@@ -715,16 +714,11 @@ wrk -t8 -c400 -d30s https://your-domain.com/api/markets
 ### 2. Database Performance Analysis
 
 ```bash
-# Analyze slow queries
-sudo -u postgres psql -d tradezone << 'EOF'
-SELECT query, calls, total_time, mean_time 
-FROM pg_stat_statements 
-ORDER BY total_time DESC 
-LIMIT 10;
-EOF
+# Analyze slow queries - refer to MySQL slow query log or performance_schema
+# see earlier section for enabling and querying the log
 
-# Connection pool statistics
-sudo -u postgres psql -d tradezone -c "SELECT datname, count(*) FROM pg_stat_activity GROUP BY datname;"
+# Connection pool statistics (approximate):
+mysqladmin -u tradezone -p processlist
 ```
 
 ---
@@ -837,14 +831,14 @@ For production with heavy traffic:
     └────┬┘         └┬────┘
          │          │
     ┌────▼──────────▼────┐
-    │  PostgreSQL DB     │
+    │  MySQL DB          │
     │  (Single/Replicated)
     └────────────────────┘
 ```
 
 Configuration:
 
-1. **Database server:** Separate dedicated PostgreSQL instance
+1. **Database server:** Separate dedicated MySQL instance
 2. **Cache server:** Separate Redis instance
 3. **API servers:** Multiple load-balanced Node.js instances
 4. **CDN:** For static assets (frontend, images)
@@ -857,7 +851,7 @@ After implementing optimizations:
 
 - [ ] Cluster mode enabled (multiple processes)
 - [ ] Database indexes created
-- [ ] PostgreSQL settings optimized
+- [ ] MySQL settings optimized
 - [ ] Redis caching configured
 - [ ] Nginx gzip enabled
 - [ ] HTTP/2 enabled
@@ -880,7 +874,7 @@ After implementing optimizations:
 - Cache everything without TTL
 - Run too many Node.js processes (limit to CPU count)
 - Skip database indexes
-- Use default PostgreSQL settings for production
+- Use default MySQL settings for production
 - Cache authenticated requests globally
 
 ✅ **Do:**

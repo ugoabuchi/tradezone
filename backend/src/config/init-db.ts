@@ -9,13 +9,12 @@ export const initializeDatabase = async () => {
 
     const client = await pool.connect();
     try {
-      // Create extensions
-      await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+      // MySQL does not support extensions; UUID() is built-in
 
     // Create users table
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         full_name VARCHAR(255),
@@ -31,8 +30,8 @@ export const initializeDatabase = async () => {
     // Create wallets table
     await client.query(`
       CREATE TABLE IF NOT EXISTS wallets (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         currency VARCHAR(10) NOT NULL,
         balance DECIMAL(20, 8) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -45,8 +44,8 @@ export const initializeDatabase = async () => {
     // Create orders table
     await client.query(`
       CREATE TABLE IF NOT EXISTS orders (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         symbol VARCHAR(20) NOT NULL,
         type VARCHAR(10) NOT NULL CHECK (type IN ('buy', 'sell')),
         price DECIMAL(20, 8) NOT NULL,
@@ -63,8 +62,8 @@ export const initializeDatabase = async () => {
     // Create transactions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS transactions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         from_currency VARCHAR(10) NOT NULL,
         to_currency VARCHAR(10) NOT NULL,
         amount DECIMAL(20, 8) NOT NULL,
@@ -77,8 +76,8 @@ export const initializeDatabase = async () => {
     // Create KYC verification table
     await client.query(`
       CREATE TABLE IF NOT EXISTS kyc_verifications (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) UNIQUE REFERENCES users(id) ON DELETE CASCADE,
         full_name VARCHAR(255) NOT NULL,
         date_of_birth DATE NOT NULL,
         country VARCHAR(100) NOT NULL,
@@ -101,8 +100,8 @@ export const initializeDatabase = async () => {
     // Create crypto wallet addresses table
     await client.query(`
       CREATE TABLE IF NOT EXISTS crypto_wallet_addresses (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         blockchain VARCHAR(50) NOT NULL,
         currency VARCHAR(10) NOT NULL,
         public_address VARCHAR(255) NOT NULL,
@@ -122,8 +121,8 @@ export const initializeDatabase = async () => {
     // Create trading accounts table (for futures, demo, copy trading)
     await client.query(`
       CREATE TABLE IF NOT EXISTS trading_accounts (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         account_type VARCHAR(50) NOT NULL CHECK (account_type IN ('spot', 'futures', 'demo', 'copy')),
         balance DECIMAL(20, 8) DEFAULT 0,
         leverage DECIMAL(3, 2) DEFAULT 1.00,
@@ -137,9 +136,9 @@ export const initializeDatabase = async () => {
     // Create copy trading relationships table
     await client.query(`
       CREATE TABLE IF NOT EXISTS copy_trades (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        follower_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        leader_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        follower_user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
+        leader_user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         allocation_percentage DECIMAL(5, 2) NOT NULL,
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -152,8 +151,8 @@ export const initializeDatabase = async () => {
     // Create futures positions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS futures_positions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         symbol VARCHAR(20) NOT NULL,
         side VARCHAR(10) NOT NULL CHECK (side IN ('long', 'short')),
         entry_price DECIMAL(20, 8) NOT NULL,
@@ -174,8 +173,8 @@ export const initializeDatabase = async () => {
     // Create stock trading table
     await client.query(`
       CREATE TABLE IF NOT EXISTS stock_positions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         symbol VARCHAR(20) NOT NULL,
         quantity DECIMAL(20, 8) NOT NULL,
         average_price DECIMAL(20, 8) NOT NULL,
@@ -192,8 +191,8 @@ export const initializeDatabase = async () => {
     // Create NFT holdings table
     await client.query(`
       CREATE TABLE IF NOT EXISTS nft_holdings (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         contract_address VARCHAR(255) NOT NULL,
         token_id VARCHAR(255) NOT NULL,
         name VARCHAR(255) NOT NULL,
@@ -216,8 +215,8 @@ export const initializeDatabase = async () => {
     // Create marketplace listings table
     await client.query(`
       CREATE TABLE IF NOT EXISTS marketplace_listings (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        seller_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        seller_user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         listing_type VARCHAR(50) NOT NULL CHECK (listing_type IN ('nft', 'product', 'service')),
         item_id VARCHAR(255) NOT NULL,
         title VARCHAR(255) NOT NULL,
@@ -239,10 +238,10 @@ export const initializeDatabase = async () => {
     // Create marketplace purchases/orders table
     await client.query(`
       CREATE TABLE IF NOT EXISTS marketplace_orders (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        buyer_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        listing_id UUID REFERENCES marketplace_listings(id) ON DELETE SET NULL,
-        seller_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        buyer_user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
+        listing_id VARCHAR(36) REFERENCES marketplace_listings(id) ON DELETE SET NULL,
+        seller_user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
         item_id VARCHAR(255) NOT NULL,
         quantity INT NOT NULL,
         unit_price DECIMAL(20, 8) NOT NULL,
@@ -263,8 +262,8 @@ export const initializeDatabase = async () => {
     // Create AI trading bots table
     await client.query(`
       CREATE TABLE IF NOT EXISTS ai_trading_bots (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         bot_name VARCHAR(255) NOT NULL,
         strategy VARCHAR(100) NOT NULL,
         symbol VARCHAR(20) NOT NULL,
@@ -288,9 +287,9 @@ export const initializeDatabase = async () => {
     // Create AI trading history
     await client.query(`
       CREATE TABLE IF NOT EXISTS ai_trading_history (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        bot_id UUID REFERENCES ai_trading_bots(id) ON DELETE CASCADE,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        bot_id VARCHAR(36) REFERENCES ai_trading_bots(id) ON DELETE CASCADE,
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         symbol VARCHAR(20) NOT NULL,
         action VARCHAR(10) NOT NULL CHECK (action IN ('buy', 'sell')),
         price DECIMAL(20, 8) NOT NULL,
@@ -307,11 +306,11 @@ export const initializeDatabase = async () => {
     // Create KYC verifications table (enhanced)
     await client.query(`
       CREATE TABLE IF NOT EXISTS kyc_verifications (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         document_type VARCHAR(50) NOT NULL,
         status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'manual-review')),
-        analysis_result JSONB,
+        analysis_result JSON,
         document_url VARCHAR(500),
         selfie_url VARCHAR(500),
         full_name VARCHAR(255),
@@ -329,9 +328,9 @@ export const initializeDatabase = async () => {
     // Create admin actions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_actions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
-        kyc_id UUID REFERENCES kyc_verifications(id) ON DELETE SET NULL,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        admin_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
+        kyc_id VARCHAR(36) REFERENCES kyc_verifications(id) ON DELETE SET NULL,
         action VARCHAR(100) NOT NULL,
         reason TEXT,
         notes TEXT,
@@ -344,8 +343,8 @@ export const initializeDatabase = async () => {
     // Create user activity logs table
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_activity_logs (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         action VARCHAR(100) NOT NULL,
         action_type VARCHAR(50) NOT NULL,
         ip_address VARCHAR(45),
@@ -359,8 +358,8 @@ export const initializeDatabase = async () => {
     // Create API logs table
     await client.query(`
       CREATE TABLE IF NOT EXISTS api_logs (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
         endpoint VARCHAR(255) NOT NULL,
         method VARCHAR(10) NOT NULL,
         status_code INT,
@@ -375,8 +374,8 @@ export const initializeDatabase = async () => {
     // Create error logs table
     await client.query(`
       CREATE TABLE IF NOT EXISTS error_logs (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
         error_type VARCHAR(100) NOT NULL,
         error_message TEXT,
         stack_trace TEXT,
@@ -390,8 +389,8 @@ export const initializeDatabase = async () => {
     // Create user sessions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         token VARCHAR(500),
         ip_address VARCHAR(45),
         user_agent TEXT,
@@ -413,8 +412,8 @@ export const initializeDatabase = async () => {
     // Create crypto wallets table
     await client.query(`
       CREATE TABLE IF NOT EXISTS crypto_wallets (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
         wallet_address VARCHAR(255) NOT NULL,
         blockchain VARCHAR(50) NOT NULL,
         wallet_name VARCHAR(255) NOT NULL,
@@ -434,9 +433,9 @@ export const initializeDatabase = async () => {
     // Create crypto transactions table
     await client.query(`
       CREATE TABLE IF NOT EXISTS crypto_transactions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        from_wallet_id UUID REFERENCES crypto_wallets(id) ON DELETE SET NULL,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
+        from_wallet_id VARCHAR(36) REFERENCES crypto_wallets(id) ON DELETE SET NULL,
         to_address VARCHAR(255) NOT NULL,
         amount DECIMAL(20, 8) NOT NULL,
         fee DECIMAL(20, 8) DEFAULT 0,
@@ -462,8 +461,8 @@ export const initializeDatabase = async () => {
     // Create transaction limits tracking table
     await client.query(`
       CREATE TABLE IF NOT EXISTS transaction_limits (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE UNIQUE,
         daily_withdrawal_used DECIMAL(20, 2) DEFAULT 0,
         monthly_withdrawal_used DECIMAL(20, 2) DEFAULT 0,
         daily_deposit_used DECIMAL(20, 2) DEFAULT 0,
@@ -479,11 +478,11 @@ export const initializeDatabase = async () => {
     // Create wallet activity logs
     await client.query(`
       CREATE TABLE IF NOT EXISTS wallet_activity_logs (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        wallet_id UUID REFERENCES crypto_wallets(id) ON DELETE SET NULL,
+        id VARCHAR(36) PRIMARY KEY NOT NULL DEFAULT (UUID()),
+        user_id VARCHAR(36) REFERENCES users(id) ON DELETE CASCADE,
+        wallet_id VARCHAR(36) REFERENCES crypto_wallets(id) ON DELETE SET NULL,
         action VARCHAR(100) NOT NULL,
-        details JSONB,
+        details JSON,
         ip_address VARCHAR(45),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );

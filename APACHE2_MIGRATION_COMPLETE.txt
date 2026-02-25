@@ -130,7 +130,7 @@ STEP 2: Download & Run Installation
    
    Installation includes:
    ✓ Node.js installation
-   ✓ PostgreSQL database setup
+   ✓ MySQL database setup
    ✓ Apache2 web server configuration
    ✓ SSL certificate (Let's Encrypt - via certbot)
    ✓ Dummy test account creation
@@ -229,7 +229,7 @@ Start Services:
   $ sudo systemctl start tradezone.service
 
 Check Status:
-  $ sudo systemctl status apache2 tradezone.service postgresql
+  $ sudo systemctl status apache2 tradezone.service mysql
 
 View Logs:
   $ tail -f /var/log/tradezone/backend.log

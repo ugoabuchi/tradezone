@@ -384,7 +384,7 @@ npm run dev
 
 ## 💾 Data Persistence
 
-All data stored in PostgreSQL:
+All data stored in MySQL:
 - User accounts & authentication
 - Trading positions & history
 - Portfolio data

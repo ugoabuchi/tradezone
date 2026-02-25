@@ -35,7 +35,7 @@ cp .env.example .env
 Edit `.env` and add required API keys:
 ```
 # Minimum required for testing:
-DATABASE_URL=postgresql://user:password@localhost:5432/tradezone
+DATABASE_URL=mysql://user:password@localhost:3306/tradezone
 JWT_SECRET=your-secret-key
 RECAPTCHA_SECRET_KEY=your-recaptcha-key
 

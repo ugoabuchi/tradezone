@@ -59,7 +59,7 @@ Syntax OK
 ### 4. Database Connection
 ```bash
 # Should list the tradezone database
-sudo -u postgres psql -l | grep tradezone
+mysql -u root -proot_password -e "SHOW DATABASES LIKE 'tradezone';"
 ```
 
 **Expected Output:**
@@ -129,7 +129,7 @@ Open your browser and navigate to: **https://your-domain.com**
 ### 8. Database Tables Created
 ```bash
 # Should list all tables
-sudo -u postgres psql -d tradezone -c "\dt"
+mysql -u tradezone -p tradezone -e "SHOW TABLES;"
 ```
 
 **Expected Tables:**
@@ -152,7 +152,7 @@ sudo -u postgres psql -d tradezone -c "\dt"
 ### 9. Users Table Populated
 ```bash
 # Should show at least 0 users (empty is OK)
-sudo -u postgres psql -d tradezone -c "SELECT COUNT(*) as user_count FROM users;"
+mysql -u tradezone -ptradezone_password tradezone -e "SELECT COUNT(*) as user_count FROM users;"
 ```
 
 **Expected Output:**
@@ -170,14 +170,19 @@ sudo -u postgres psql -d tradezone -c "SELECT COUNT(*) as user_count FROM users;
 ### 10. Database Connection String Works
 ```bash
 # Should work without errors
-DATABASE_URL="postgresql://tradezone:password@localhost:5432/tradezone" node -e "
-const { Pool } = require('pg');
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.query('SELECT 1', (err, res) => {
-  if (err) console.error('FAIL:', err.message);
-  else console.log('SUCCESS: Database connected');
-  pool.end();
-});
+DATABASE_URL="mysql://tradezone:password@localhost:3306/tradezone" node -e "
+const mysql = require('mysql2/promise');
+(async () => {
+  try {
+    const pool = mysql.createPool(process.env.DATABASE_URL);
+    const [rows] = await pool.query('SELECT 1');
+    console.log('SUCCESS: Database connected');
+    await pool.end();
+  } catch (err) {
+    console.error('FAIL:', err.message);
+    process.exit(1);
+  }
+})();
 "
 ```
 
@@ -202,7 +207,7 @@ grep -E "DATABASE_URL|JWT_SECRET|PORT|CORS_ORIGIN" /var/www/tradezone/backend/.e
 
 **Expected Output:**
 ```
-DATABASE_URL=postgresql://tradezone:...
+DATABASE_URL=mysql://tradezone:...
 JWT_SECRET=...non-empty...
 PORT=3001
 CORS_ORIGIN=https://your-domain.com
@@ -396,7 +401,7 @@ bcrypt
 ### 22. Payment Database Tables Exist
 ```bash
 # Should show payment-related tables
-sudo -u postgres psql -d tradezone -c "\dt" | grep -i payment
+mysql -u tradezone -ptradezone_password tradezone -e "SHOW TABLES LIKE '%payment%';"
 ```
 
 **Expected Output:**
@@ -493,7 +498,7 @@ ls -lh /var/log/tradezone/backend.log
 ### 27. Database Performance OK
 ```bash
 # Analyze database performance
-sudo -u postgres psql -d tradezone -c "ANALYZE; SELECT schemaname, tablename, n_live_tup as rows FROM pg_stat_user_tables;"
+mysql -u tradezone -ptradezone_password tradezone -e "ANALYZE TABLE users; SELECT table_schema, table_name, table_rows FROM information_schema.tables WHERE table_schema='tradezone';"
 ```
 
 **Expected Output:**
@@ -538,7 +543,7 @@ sudo -u postgres psql -d tradezone -c "ANALYZE; SELECT schemaname, tablename, n_
 
 **Verify:**
 ```bash
-sudo -u postgres psql -d tradezone -c "SELECT email FROM users ORDER BY created_at DESC LIMIT 1;"
+mysql -u tradezone -ptradezone_password tradezone -e "SELECT email FROM users ORDER BY created_at DESC LIMIT 1;"
 ```
 
 **✅ Pass/❌ Fail:** [ ]
@@ -640,7 +645,7 @@ If **ALL tests pass**, your installation is complete and successful! ✅
 ```
 
 ### Next Steps After Verification
-1. **Backup database:** `sudo -u postgres pg_dump tradezone > backup-$(date +%Y%m%d).sql`
+1. **Backup database:** `mysqldump -u tradezone -ptradezone_password tradezone > backup-$(date +%Y%m%d).sql`
 2. **Configure payment keys:** Update Stripe, PayPal, Paystack credentials
 3. **Add admin users:** Create admin accounts for your team
 4. **Set up monitoring:** Optional - install error tracking, uptime monitoring
@@ -662,10 +667,10 @@ If you have **1-3 failed tests:**
 
 ```bash
 # Quick restart everything
-sudo systemctl restart tradezone.service apache2 postgresql
+sudo systemctl restart tradezone.service apache2 mysql
 
 # Check all services
-systemctl status tradezone.service apache2 postgresql
+systemctl status tradezone.service apache2 mysql
 
 # View recent errors
 journalctl -u tradezone.service -n 30
@@ -692,7 +697,7 @@ If **>5 tests fail:**
 2. **Check critical services:**
    ```bash
    sudo systemctl status tradezone.service
-   sudo systemctl status postgresql
+   sudo systemctl status mysql
    sudo systemctl status apache2
    ```
 
@@ -726,7 +731,7 @@ If **>5 tests fail:**
 
 ```bash
 # All in one status check
-for service in tradezone.service apache2 postgresql redis-server; do
+for service in tradezone.service apache2 mysql redis-server; do
   echo "=== $service ==="
   sudo systemctl status $service | grep -E "Active|running"
 done
@@ -737,7 +742,7 @@ ls -la /var/www/tradezone/frontend/dist/index.html
 ls -la /etc/apache2/sites-enabled/tradezone.conf
 
 # Quick database check
-sudo -u postgres psql -d tradezone -c "SELECT version(); SELECT COUNT(*) FROM pg_tables WHERE schemaname='public';"
+mysql -u tradezone -ptradezone_password tradezone -e "SELECT VERSION(); SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='tradezone';"
 
 # Full resource check
 echo "=== Memory ==="; free -h; echo "=== Disk ==="; df -h /; echo "=== Uptime ==="; uptime

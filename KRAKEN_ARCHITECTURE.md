@@ -44,7 +44,7 @@
 │  │  └──────────────────────────────────────────────┘           │
 │  │                                                              │
 │  │  ┌──────────────────────────────────────────┐               │
-│  │  │  Database (PostgreSQL)                   │               │
+│  │  │  Database (MySQL)                   │               │
 │  │  │  - User orders                           │               │
 │  │  │  - Wallet balances                       │               │
 │  │  │  - Transaction history                   │               │

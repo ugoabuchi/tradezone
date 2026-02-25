@@ -511,7 +511,7 @@ Expected system performance:
 
 No new npm packages required. Uses existing:
 - `express` - HTTP server
-- `pg` - PostgreSQL client
+- `pg` - MySQL client
 - `crypto` - HMAC verification
 - `axios` - HTTP requests (implied)
 - `dotenv` - Environment variables

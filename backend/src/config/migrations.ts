@@ -1,19 +1,27 @@
 import fs from 'fs';
 import path from 'path';
-import { Pool } from 'pg';
+import mysql from 'mysql2/promise';
 
-export async function runMigrations(pool: Pool) {
+interface MigrationPool {
+  query: (sql: string, params?: any[]) => Promise<any>;
+}
+
+function convertPlaceholders(sql: string): string {
+  return sql.replace(/\$\d+/g, '?');
+}
+
+export async function runMigrations(pool: MigrationPool) {
   const migrationsDir = path.join(__dirname, '../migrations');
 
   console.log('Running database migrations...');
 
-  // Create migrations table if it doesn't exist
+  // Create migrations table if it doesn't exist (MySQL syntax)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
-      id SERIAL PRIMARY KEY,
+      id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(255) NOT NULL UNIQUE,
       executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
+    ) ENGINE=InnoDB;
   `);
 
   // Get all migration files sorted by name
@@ -23,8 +31,8 @@ export async function runMigrations(pool: Pool) {
     .sort();
 
   // Get already executed migrations
-  const result = await pool.query('SELECT name FROM schema_migrations');
-  const executedMigrations = result.rows.map((row) => row.name);
+  const [rows] = await pool.query('SELECT name FROM schema_migrations');
+  const executedMigrations = (rows as any[]).map((row) => row.name);
 
   for (const file of migrationFiles) {
     if (executedMigrations.includes(file)) {
@@ -43,12 +51,13 @@ export async function runMigrations(pool: Pool) {
         .filter((stmt) => stmt.length > 0);
 
       for (const statement of statements) {
-        await pool.query(statement);
+        const stmt = convertPlaceholders(statement);
+        await pool.query(stmt);
       }
 
       // Record migration execution
       await pool.query(
-        'INSERT INTO schema_migrations (name) VALUES ($1)',
+        'INSERT INTO schema_migrations (name) VALUES (?)',
         [file]
       );
 
@@ -64,11 +73,9 @@ export async function runMigrations(pool: Pool) {
 
 // Run migrations if this file is executed directly
 if (require.main === module) {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
+  const pool = mysql.createPool(process.env.DATABASE_URL!);
 
-  runMigrations(pool)
+  runMigrations(pool as any)
     .then(() => {
       console.log('✓ Database migrations completed successfully');
       process.exit(0);

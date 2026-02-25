@@ -1,22 +1,23 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: tradezone-postgres
+  mysql:
+    image: mysql:8.1
+    container_name: tradezone-mysql
     environment:
-      POSTGRES_USER: tradezone
-      POSTGRES_PASSWORD: tradezone_password
-      POSTGRES_DB: tradezone
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: tradezone
+      MYSQL_USER: tradezone
+      MYSQL_PASSWORD: tradezone_password
     ports:
-      - '5432:5432'
+      - '3306:3306'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U tradezone']
+      test: ['CMD','mysqladmin','ping','-h','localhost','-proot_password']
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  postgres_data:
+  mysql_data:

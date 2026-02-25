@@ -501,7 +501,7 @@ Before going to production:
          │                  │                  │
          ▼                  ▼                  ▼
     ┌─────────────┐  ┌──────────────┐  ┌──────────────┐
-    │ PostgreSQL  │  │    Redis     │  │  Payment API │
+    │ MySQL       │  │    Redis     │  │  Payment API │
     │  Database   │  │    Cache     │  │   (Stripe,   │
     │             │  │              │  │   PayPal,    │
     └─────────────┘  └──────────────┘  │   Paystack)  │

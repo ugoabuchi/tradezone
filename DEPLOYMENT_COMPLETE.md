@@ -79,7 +79,7 @@
 ├─────────────────────────────────────────────┤
 │ ✓ System requirements check                 │
 │ ✓ Install Node.js 18+ (nvm or direct)      │
-│ ✓ Install PostgreSQL 14+ + setup DB        │
+│ ✓ Install MySQL 14+ + setup DB        │
 │ ✓ Install Redis (optional cache layer)     │
 │ ✓ Install Nginx (reverse proxy)            │
 │ ✓ Git clone/pull repository                │
@@ -232,7 +232,7 @@ sudo bash install.sh
 
 ### Immediate Value
 ✅ **One-Command Deployment** - Single `bash install.sh`  
-✅ **Production-Ready** - SSL, Nginx, PostgreSQL configured  
+✅ **Production-Ready** - SSL, Nginx, MySQL configured  
 ✅ **Payment Processing** - 3 gateways (Stripe, PayPal, Paystack)  
 ✅ **Database Migrations** - Automated schema management  
 ✅ **Monitoring Ready** - Tools and scripts provided  
@@ -264,7 +264,7 @@ sudo bash install.sh
 ```
 VPS (2GB RAM)
 ├── Nginx (reverse proxy, 50MB)
-├── PostgreSQL (database, 500MB)
+├── MySQL (database, 500MB)
 ├── Redis (cache, 100MB) optional
 └── Node.js (2-4 processes, 300MB+ each)
 ```
@@ -276,7 +276,7 @@ VPS (2GB RAM)
 ```
 VPS (4GB RAM)
 ├── Nginx (200MB)
-├── PostgreSQL with tuning (1GB+)
+├── MySQL with tuning (1GB+)
 ├── Redis (cluster) (500MB)
 └── Node.js (4-8 processes, 400MB+ each)
 ```
@@ -292,7 +292,7 @@ Load Balancer/Nginx (DigitalOcean LB)
 ├─ App Server #2 (Node.js cluster)
 ├─ App Server #3 (Node.js cluster)
 │
-├─ Database Server (PostgreSQL dedicated)
+├─ Database Server (MySQL dedicated)
 ├─ Cache Server (Redis cluster)
 └─ CDN (Cloudflare for static assets)
 ```
@@ -527,7 +527,7 @@ tail -f /var/log/tradezone/backend.log
 sudo systemctl restart tradezone.service
 
 # Full restart all services
-sudo systemctl restart tradezone.service nginx postgresql
+sudo systemctl restart tradezone.service nginx mysql
 ```
 
 ---
@@ -580,7 +580,7 @@ Your TradeZone production deployment package is complete and ready to use!
 ✅ Comprehensive documentation (2,400+ lines)  
 ✅ Production-grade backend with payment processing  
 ✅ React frontend with all features  
-✅ PostgreSQL database with migrations  
+✅ MySQL database with migrations  
 ✅ Nginx reverse proxy configuration  
 ✅ SSL/TLS setup (Let's Encrypt)  
 ✅ Monitoring and alerting setup  
